@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Sales Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+    <h2>Upload Sales Data (JSON)</h2>
+    <input type="file" id="fileInput" accept=".json">
+    <div id="charts">
+        <div id="global_sales_chart"></div>
+        <div id="top_games_chart"></div>
+        <div id="sales_trend_chart"></div>
+        <div id="regional_sales_chart"></div>
+        <div id="genre_sales_chart"></div>
+    </div>
+
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = JSON.parse(e.target.result);
+                generateDashboard(data);
+            };
+            reader.readAsText(file);
+        });
+
+        function generateDashboard(data) {
+            // Extract required fields
+            const platforms = [...new Set(data.map(d => d.Platform))];
+            const platformSales = platforms.map(p => {
+                return {
+                    platform: p,
+                    sales: data.filter(d => d.Platform === p).reduce((sum, game) => sum + game.Global_Sales, 0)
+                };
+            });
+            
+            // Global Sales by Platform (Bar Chart)
+            Plotly.newPlot('global_sales_chart', [{
+                x: platformSales.map(d => d.platform),
+                y: platformSales.map(d => d.sales),
+                type: 'bar'
+            }], {title: 'Global Sales by Platform'});
+
+            // Top-Selling Games (Pie Chart)
+            const topGames = data.sort((a, b) => b.Global_Sales - a.Global_Sales).slice(0, 10);
+            Plotly.newPlot('top_games_chart', [{
+                labels: topGames.map(d => d.Name),
+                values: topGames.map(d => d.Global_Sales),
+                type: 'pie'
+            }], {title: 'Top-Selling Games'});
+
+            // Sales Trend Over the Years (Line Chart)
+            const years = [...new Set(data.map(d => d.Year))].sort((a, b) => a - b);
+            const yearSales = years.map(y => {
+                return {
+                    year: y,
+                    sales: data.filter(d => d.Year === y).reduce((sum, game) => sum + game.Global_Sales, 0)
+                };
+            });
+            Plotly.newPlot('sales_trend_chart', [{
+                x: yearSales.map(d => d.year),
+                y: yearSales.map(d => d.sales),
+                type: 'scatter',
+                mode: 'lines+markers'
+            }], {title: 'Sales Trend Over the Years'});
+
+            // Regional Sales Comparison (Stacked Bar Chart)
+            Plotly.newPlot('regional_sales_chart', [{
+                x: topGames.map(d => d.Name),
+                y: topGames.map(d => d.NA_Sales),
+                name: 'NA Sales',
+                type: 'bar'
+            }, {
+                x: topGames.map(d => d.Name),
+                y: topGames.map(d => d.EU_Sales),
+                name: 'EU Sales',
+                type: 'bar'
+            }, {
+                x: topGames.map(d => d.Name),
+                y: topGames.map(d => d.JP_Sales),
+                name: 'JP Sales',
+                type: 'bar'
+            }, {
+                x: topGames.map(d => d.Name),
+                y: topGames.map(d => d.Other_Sales),
+                name: 'Other Sales',
+                type: 'bar'
+            }], {title: 'Regional Sales Comparison', barmode: 'stack'});
+
+            // Genre-Wise Sales Performance (Treemap)
+            const genres = [...new Set(data.map(d => d.Genre))];
+            const genreSales = genres.map(g => {
+                return {
+                    genre: g,
+                    sales: data.filter(d => d.Genre === g).reduce((sum, game) => sum + game.Global_Sales, 0)
+                };
+            });
+            Plotly.newPlot('genre_sales_chart', [{
+                type: "treemap",
+                labels: genreSales.map(d => d.genre),
+                parents: Array(genreSales.length).fill(""),
+                values: genreSales.map(d => d.sales)
+            }], {title: 'Genre-Wise Sales Performance'});
+        }
+    </script>
+</body>
+</html>
